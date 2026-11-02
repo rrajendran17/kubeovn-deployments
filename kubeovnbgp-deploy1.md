@@ -1,8 +1,8 @@
-# Connecting Kube-OVN Overlay Networks to External Underlay Networks Using BGP
+# Connecting Kube-OVN Overlay Networks to External Underlay Networks and Establishing external connectivity using BGP
 
 ## Objective
 
-This document describes how to establish connectivity between a Kube-OVN overlay network and an external underlay network and advertise overlay network routes to an external BGP peer running FRRouting (FRR).
+This document describes how to establish connectivity between a Kube-OVN overlay network and an external underlay network and advertise overlay network routes to an external BGP peer running FRR.
 
 The setup uses:
 
@@ -23,7 +23,7 @@ Once configured:
 4. The BGP speaker advertises the overlay subnet (`172.20.10.0/24`) and VM IP (`172.20.10.2/32`) to FRR.
 5. FRR installs the received routes in its BGP routing table and, subject to route selection, its Linux routing table.
 
-### Network Architecture
+### Network Architecture and configuration
 
 #### Logical network diagram
 
@@ -65,8 +65,8 @@ The following diagram illustrates the relationship between the overlay, underlay
         |                  |                   |
         |    +-------------+-------------+     |
         |    | Harvester Node            |     |
-        |    |                           |     |
-        |    | BGP Speaker (GoBGP)        |     |
+        |    | AS 65000                  |     |
+        |    | BGP Speaker (GoBGP)       |     |
         |    | Host interface:           |     |
         |    | 10.115.48.4/21            |     |
         |    +-------------+-------------+     |
@@ -98,7 +98,7 @@ The following diagram illustrates the relationship between the overlay, underlay
 The following addresses are used throughout this document. Replace them with addresses from your environment.
 
 | Component | IP address / CIDR | Description |
-|---|---|---|
+|-----------|---|---|
 | Provider Network | Physical NIC `eno50` | Underlay uplink |
 | VLAN | 2017 | External connectivity |
 | External subnet | `10.115.48.0/21` | Underlay network |
@@ -114,7 +114,7 @@ The following addresses are used throughout this document. Replace them with add
 
 #### Configure the External Underlay Network
 
-The first step is to provide physical network connectivity between the Harvester nodes and the external FRR router.
+The first step is to provide physical network connectivity between the Harvester nodes and the external switch.
 
 ##### Create a Provider Network
 
@@ -211,7 +211,7 @@ Important configuration:
 Check the resources:
 
 ```bash
-kubectl get providernetwork
+kubectl get provider-network
 kubectl get vlan
 kubectl get network-attachment-definitions -n default
 kubectl get subnet external
@@ -347,6 +347,12 @@ Route Table <main>:
 
 The logical router now has an external connection and a default route pointing to the external gateway.
 
+```
+kubectl get ovn-eip
+NAME                 V4IP          V6IP   MAC                 TYPE   NAT   READY   EXTERNALSUBNET
+commonvpc-external   10.115.48.3          de:f7:11:f6:4f:d9   lrp          true    external
+
+```
 #### Deploy the Kube-OVN BGP Speaker
 
 The BGP speaker is responsible for establishing a BGP session with the external FRR router and advertising overlay routes.
@@ -355,7 +361,25 @@ Kube-OVN uses GoBGP internally to implement this functionality.
 
 ##### Configure the BGP speaker node
 
-The BGP speaker must run on a node that has connectivity to the external underlay network.
+The BGP speaker must run on a node that has connectivity to the external underlay network, so that it connects to a VM in vlan 2017 running FRR.
+
+Create the following hostnetworkconfig to create host interface connecting to FRR neighbor
+
+```
+kubectl get hostnetworkconfig hnc-mgmt-vlan2017 -o yaml
+apiVersion: network.harvesterhci.io/v1beta1
+kind: HostNetworkConfig
+metadata:
+  name: hnc-mgmt-vlan2017
+spec:
+  clusterNetwork: mgmt
+  ips:
+    hp-46: 10.115.48.4/21
+    hp-65: 10.115.48.5/21
+  mode: static
+  underlay: false
+  vlanID: 2017
+```
 
 For this example, the node has the following interface:
 
@@ -374,7 +398,7 @@ Replace `speaker-node-1` with the actual Harvester node name.
 
 ##### Install the BGP speaker
 
-Deploy the following DaemonSet.
+Deploy the following DaemonSet or use the bgp configmap once the PR https://github.com/harvester/network-controller-harvester/pull/446 is merged.
 
 Use a Kube-OVN image matching the version deployed in the cluster. The image below is the example image used in this lab.
 
@@ -426,7 +450,7 @@ spec:
             - --neighbor-address=10.115.53.2
             - --neighbor-as=65030
             - --cluster-as=65000
-            - --node-ips=10.115.48.4
+            - --node-ips=10.115.48.3
           env:
             - name: NODE_NAME
               valueFrom:
@@ -464,16 +488,18 @@ BGP arguments:
 | `neighbor-address` | IP address of the external FRR peer |
 | `neighbor-as` | AS number of the FRR router |
 | `cluster-as` | Local AS number used by the Kube-OVN speaker |
-| `node-ips` | Underlay IP address used by the speaker node |
+| `node-ips` | IP address advertised as nexthop for the overlay network route |
 
 In this example:
 
 - Local AS: `65000`
 - Neighbor AS: `65030`
 - Neighbor IP: `10.115.53.2`
-- Speaker node IP: `10.115.48.4`
+- Nexthop IP: `10.115.48.3`
 
 The speaker uses host networking so that it can establish the BGP session directly over the node's underlay network.
+In this example, the BGP session is established via 10.115.48.4, 10.115.48.5 and 10.115.53.2(neighbor running FRR) but the actual traffic 
+between external should reach the LRP (ovn-eip) so that traffic will be forwarded to overlay vm 172.20.10.2
 
 Apply the DaemonSet:
 
@@ -505,7 +531,7 @@ For this reason, if multiple speaker instances are deployed, the external router
 
 The external router runs FRRouting (FRR) on Linux and acts as the BGP neighbor of the Kube-OVN speaker.
 
-##### Install FRR
+##### Install FRR (Create a VM and attach it to vlan 2017 network)
 
 On the Linux machine that will act as the BGP peer:
 
@@ -528,12 +554,6 @@ Enable the BGP daemon:
 bgpd=yes
 ```
 
-Restart FRR:
-
-```
-sudo systemctl restart frr
-```
-
 ### 6.3 Configure the FRR BGP neighbor
 
 Edit:
@@ -544,22 +564,27 @@ sudo vi /etc/frr/frr.conf
 
 Example configuration:
 
-```text
+```
+Current configuration:
+!
 frr version 8.1
 frr defaults traditional
-hostname bgppeer-vlan2017
+hostname renuka-ThinkPad-P14s-Gen-4
 log syslog informational
 no ipv6 forwarding
 service integrated-vtysh-config
 !
 router bgp 65030
- bgp router-id 10.115.53.2
- neighbor 10.115.48.4 remote-as 65000
+ bgp router-id 10.115.13.86
+ neighbor 10.115.14.43 remote-as 65000
  !
  address-family ipv4 unicast
-  neighbor 10.115.48.4 activate
-  neighbor 10.115.48.4 soft-reconfiguration inbound
+  neighbor 10.115.14.43 route-map ACCEPT-ALL in
+  neighbor 10.115.14.43 route-map ACCEPT-ALL out
  exit-address-family
+exit
+!
+route-map ACCEPT-ALL permit 10
 exit
 !
 end
@@ -607,13 +632,13 @@ show ip bgp summary
 Check neighbor details:
 
 ```text
-show ip bgp neighbors
+show bgp neighbors
 ```
 
 Check routes received from Harvester:
 
 ```text
-show bgp ipv4 unicast neighbors 10.115.48.4 received-routes
+show bgp ipv4 unicast neighbors 10.115.48.3 received-routes
 ```
 
 Check the BGP routing table:
@@ -637,6 +662,10 @@ show ip fib
 ## 7. Verify BGP Route Advertisement
 
 After deploying the speaker and configuring FRR, verify that the BGP session is established.
+
+```text
+show bgp neighbors
+```
 
 ### 7.1 Verify the session from Harvester
 
@@ -670,8 +699,8 @@ BGP table version is 22, local router ID is 10.115.53.2
 local AS number 65030
 
    Network          Next Hop        Metric LocPrf Weight Path
-*> 172.20.10.0/24   10.115.48.4                         0 65000 i
-*> 172.20.10.2/32   10.115.48.4                         0 65000 i
+*> 172.20.10.0/24   10.115.48.3                        0 65000 i
+*> 172.20.10.2/32   10.115.48.3                         0 65000 i
 ```
 
 The output demonstrates that FRR has learned two routes:
@@ -681,7 +710,10 @@ The output demonstrates that FRR has learned two routes:
 | `172.20.10.0/24` | Entire overlay subnet |
 | `172.20.10.2/32` | Individual VM IP |
 
-The next hop for both routes is `10.115.48.4`, which is the underlay IP address of the Harvester node running the BGP speaker.
+The next hop for both routes is `10.115.48.3`, which is the nexthop ip mentioned as nodeIP in bgp speaker.yaml
+If nodeIP is not specified, then nexthop will be used as connecting interface for the bgp session which is 10.115.48.4.
+For nodeIP to work, a fix is needed in upstream which is in review https://github.com/kubeovn/kube-ovn/issues/7833 
+https://github.com/kubeovn/kube-ovn/pull/7834
 
 The AS path contains `65000`, indicating that the routes originated from the Kube-OVN AS.
 
@@ -696,13 +728,13 @@ show ip route
 Expected output:
 
 ```text
-B>* 172.20.10.0/24 [20/0] via 10.115.48.4, enp1s0
-B>* 172.20.10.2/32 [20/0] via 10.115.48.4, enp1s0
+B>* 172.20.10.0/24 [20/0] via 10.115.48.3, enp1s0
+B>* 172.20.10.2/32 [20/0] via 10.115.48.3, enp1s0
 ```
 
 This indicates that FRR has selected the BGP routes for installation into the Linux routing table.
 
-The external router now knows that traffic destined for `172.20.10.0/24` must be forwarded to the Harvester node at `10.115.48.4`.
+The external router now knows that traffic destined for `172.20.10.0/24` must be forwarded to the Harvester node at `10.115.48.3`.
 
 #### End-to-End Traffic Flow
 
@@ -715,9 +747,9 @@ Consider an external machine trying to reach VM `172.20.10.2`.
 1. The external machine sends traffic to `172.20.10.2`.
 2. Its gateway (FRR) looks up the destination in its routing table.
 3. FRR matches `172.20.10.2/32` or `172.20.10.0/24`.
-4. FRR forwards the packet to the next hop `10.115.48.4`.
+4. FRR forwards the packet to the next hop `10.115.48.3`.
 5. The packet reaches the Harvester node running the BGP speaker.
-6. Kube-OVN/OVN forwarding delivers the packet to the VM's overlay network.
+6. Kube-OVN/OVN forwarding LRP delivers the packet to the VM's overlay network.
 7. The VM receives the traffic.
 
 ##### Return traffic
@@ -727,7 +759,7 @@ Consider an external machine trying to reach VM `172.20.10.2`.
 3. The VPC uses its routing configuration to forward traffic towards the external network.
 4. The external network receives the response.
 
-**Important:** BGP route advertisement alone does not guarantee end-to-end connectivity. The forwarding path, return route, firewall rules, and absence of unintended NAT must also be verified. In particular, the VPC routing configuration must provide a valid return path to the external destination.
+Ping from VM to external 10.115.53.2 should also work.
 
 ### Troubleshooting
 
