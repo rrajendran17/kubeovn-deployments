@@ -219,6 +219,14 @@ kubectl get subnet external
 
 The external subnet should be ready before proceeding.
 
+##### Labels the nodes used as gateway nodes
+
+```
+kubectl label nodes node-1 node-2 ovn.kubernetes.io/external-gw=true"
+```
+
+Replace node-1, node-2 with names of the nodes from your setup
+
 #### Configure the Overlay VPC
 
 The next step is to create a custom VPC and connect it to the external subnet.
