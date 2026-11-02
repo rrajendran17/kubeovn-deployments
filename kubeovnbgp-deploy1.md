@@ -562,7 +562,7 @@ Enable the BGP daemon:
 bgpd=yes
 ```
 
-### 6.3 Configure the FRR BGP neighbor
+##### Configure the FRR BGP neighbor
 
 Edit:
 
@@ -617,7 +617,7 @@ Restart FRR:
 sudo systemctl restart frr
 ```
 
-### 6.4 Verify the FRR configuration
+##### Verify the FRR configuration
 
 Enter the FRR shell:
 
@@ -667,7 +667,7 @@ Check the forwarding information base:
 show ip fib
 ```
 
-## 7. Verify BGP Route Advertisement
+#### Verify BGP Route Advertisement
 
 After deploying the speaker and configuring FRR, verify that the BGP session is established.
 
@@ -675,7 +675,7 @@ After deploying the speaker and configuring FRR, verify that the BGP session is 
 show bgp neighbors
 ```
 
-### 7.1 Verify the session from Harvester
+#### Verify the session from Harvester
 
 On the BGP speaker node, inspect the GoBGP neighbor state:
 
