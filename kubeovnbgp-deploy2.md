@@ -10,6 +10,55 @@ The workload traffic path is:
 
 The BGP peering session uses the Harvester host's management VLAN interface, `mgmt-br.2012`. The external FRR peer learns the overlay subnet and VM routes through this session.
 
+## Architecture
+                 HARVESTER CLUSTER
++------------------------------------------------+
+|                                                |
+|               Custom VPC                      |
+|               commonvpc                        |
+|                                                |
+|   +----------------------------------------+   |
+|   | Overlay Subnet                         |   |
+|   | subnetinternal                         |   |
+|   | 172.20.10.0/24                          |   |
+|   |                                        |   |
+|   |     +--------------------------+       |   |
+|   |     | VM                       |       |   |
+|   |     | 172.20.10.3              |       |   |
+|   |     +------------+-------------+       |   |
+|   +------------------|---------------------+   |
+|                      |                         |
+|                      |                         |
+|             Provider Network                   |
+|                      |                         |
+|                 br-pn1                          |
+|                      |                         |
+|             Physical NIC eno50                 |
+|                      |                         |
+|                                                |
+|  +------------------------------------------+  |
+|  | Harvester Host                           |  |
+|  |                                          |  |
+|  | mgmt-br.2012: 10.115.14.43               |  |
+|  |                                          |  |
+|  | Kube-OVN BGP Speaker                     |  |
+|  | Local AS: 65000                          |  |
+|  +----------------------+-------------------+  |
++-------------------------|----------------------+
+                          |
+                          | Underlay network
+                          |
+                 +--------+---------+
+                 |                  |
+                 | External FRR    |
+                 | 10.115.13.86    |
+                 | AS 65030        |
+                 +------------------+
+
+BGP advertised routes:
+  172.20.10.0/24
+  172.20.10.3/32
+  
 ## 2. Lab topology and BGP parameters
 
 | Component | Value |
