@@ -1,4 +1,4 @@
-# Connecting Kube-OVN Overlay Networks to External Underlay Networks and Establishing external connectivity using BGP
+# Connecting Kube-OVN Overlay Networks to External Underlay Networks Using LRP and Establishing external connectivity using BGP
 
 ## Objective
 
