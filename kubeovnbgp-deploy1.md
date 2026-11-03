@@ -607,10 +607,6 @@ Configuration explanation:
 | Neighbor | `10.115.48.4` | Harvester BGP speaker IP |
 | Remote AS | `65000` | Kube-OVN BGP AS |
 
-The `soft-reconfiguration inbound` setting allows FRR to retain received routes for inspection using the `received-routes` command.
-
-The earlier `ACCEPT-ALL` route-map configuration can also be used if required. This example omits it because no additional route filtering is required in this basic lab.
-
 Restart FRR:
 
 ```bash
