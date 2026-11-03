@@ -1,8 +1,8 @@
-# BGP Route Advertisement for a Custom Overlay Subnet Through a Provider Bridge
+# Connecting Kube-OVN Overlay Networks to External Underlay Networks Using Provider Network and Establishing external connectivity using BGP
 
 ## 1. Objective
 
-This document describes how to advertise routes for a custom Kube-OVN overlay subnet to an external FRR BGP peer.
+This document describes how to connect overlay to underlay using provider network and advertise routes for a custom Kube-OVN overlay subnet to an external FRR BGP peer.
 
 The workload traffic path is:
 
@@ -84,7 +84,7 @@ show ip bgp neighbors
 show ip fib
 ```
 
-The BGP session should become `Established`.
+The BGP session should become `Established` after installing the bgp speaker on harvester host.
 
 ## 4. Deploy the Kube-OVN BGP speaker
 
@@ -235,8 +235,6 @@ apiVersion: kubeovn.io/v1
 kind: Vpc
 metadata:
   name: commonvpc
-spec:
-  enableExternal: false
 ```
 
 Apply and verify:
@@ -276,7 +274,7 @@ kubectl apply -f nad.yaml
 kubectl get network-attachment-definitions -n default
 ```
 
-## 9. Create the custom overlay subnet
+## 9. Create the custom overlay subnet attaching to the vlan of provider network
 
 Create the `subnetinternal` subnet with the custom VPC, provider, and VLAN.
 
@@ -334,18 +332,16 @@ The subnet annotation enables Kube-OVN to advertise the subnet and relevant VM r
 
 The intended traffic path is for VM traffic to reach the Harvester host through the provider bridge `br-pn1`, and for the host's routing configuration to forward traffic externally.
 
-In the lab, the bridge was configured with:
+In the lab,configure the br-pn1 interface on each node with the following:
 
 ```bash
 ip addr add 172.20.10.1/24 dev br-pn1
-ip addr add 172.20.20.1/24 dev br-pn1
 ```
 
 The corresponding connected routes are:
 
 ```text
 172.20.10.0/24 dev br-pn1 proto kernel scope link src 172.20.10.1
-172.20.20.0/24 dev br-pn1 proto kernel scope link src 172.20.20.1
 ```
 
 Inspect the bridge and routes:
@@ -354,10 +350,6 @@ Inspect the bridge and routes:
 ip addr show br-pn1
 ip route show | grep 172.20
 ```
-
-**Important address-ownership consideration:** The Kube-OVN subnet configuration also defines `172.20.10.1` as its logical gateway and excludes that address from VM allocation. Assigning the same address to the host bridge can create duplicate gateway/IP ownership or ARP conflicts, depending on the actual OVN and bridge topology. Treat the commands above as the recorded lab configuration, not a universally safe configuration. Validate the intended gateway ownership and forwarding design before applying this on a production cluster.
-
-Also ensure that IP forwarding, host firewall rules, and the external default route permit the required traffic. BGP route advertisement alone does not establish the data-plane return path.
 
 ## 12. Verify routes on the FRR peer
 
@@ -374,21 +366,8 @@ The expected BGP routes include the overlay subnet and VM address. The observed 
 
 ```text
 Network          Next Hop
-10.54.0.0/16     10.115.14.43
-10.54.0.2/32     10.115.14.43
 172.20.10.0/24   10.115.14.43
 172.20.10.3/32   10.115.14.43
-172.20.20.0/24   10.115.14.43
-172.20.20.4/32   10.115.14.43
-```
-
-The `10.54.0.0/16` entries and `172.20.20.0/24` entries are additional routes present in the recorded lab, not resources created by the `subnetinternal` YAML in this document.
-
-The important routes for this deployment are:
-
-```text
-172.20.10.0/24
-172.20.10.3/32
 ```
 
 Both should be reachable through the Harvester BGP next hop `10.115.14.43`.
