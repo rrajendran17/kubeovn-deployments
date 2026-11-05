@@ -1,5 +1,7 @@
 # Kube-OVN BGP Integration – Setup and Validation Guide
 
+<img width="345" height="1121" alt="image" src="https://github.com/user-attachments/assets/b77f47b0-2dfc-44bf-a51d-bdfc6b267192" />
+
 ## Overview
 
 This document describes the steps to establish BGP peering between a Harvester cluster running Kube-OVN and an external FRR router.
