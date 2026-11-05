@@ -1,5 +1,11 @@
 # Kube-OVN BGP Integration – Setup and Validation Guide
 
+KubeOVN BGP integration with Harvester enables external networks to communicate directly with workloads running on Kube-OVN overlay networks in Harvester using BGP (Border Gateway Protocol). Instead of relying on NAT or manually configuring static routes, Kube-OVN can dynamically advertise overlay subnet and VM IP routes to external BGP routers.
+
+Kube-OVN provides an upstream BGP Speaker DaemonSet, configured through speaker.yaml. The configuration includes parameters such as the external BGP neighbor address, neighbor AS, and local cluster AS. Once deployed, the BGP Speaker uses GoBGP to establish BGP peering sessions with the configured external BGP neighbors and advertise routes for eligible Kube-OVN subnets.
+
+The BGP Speaker is therefore the control-plane component that enables dynamic route exchange between the Kube-OVN overlay and external networks. This allows external routers to learn how to reach overlay workloads, using the OVN external logical router port as the advertised next hop, without requiring NAT.
+
 <img width="345" height="1121" alt="image" src="https://github.com/user-attachments/assets/b77f47b0-2dfc-44bf-a51d-bdfc6b267192" />
 
 ## Overview
