@@ -29,6 +29,9 @@ Once configured:
 
 The following diagram illustrates the relationship between the overlay, underlay, BGP speaker, and external router.
 
+<img width="473" height="1020" alt="Screenshot 2026-11-05 at 14-37-32 Diagram Representation" src="https://github.com/user-attachments/assets/37fb878e-f973-448e-9581-315fa67ef1dc" />
+
+
 ```
                   HARVESTER CLUSTER
         +--------------------------------------+
