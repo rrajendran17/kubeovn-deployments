@@ -50,41 +50,8 @@ The communication happens in the following sequence:
 6. External traffic destined for the overlay subnet can now be routed towards the Harvester cluster.
 
 ### Architecture Diagram
+<img width="1393" height="263" alt="image" src="https://github.com/user-attachments/assets/0572ef8b-c47d-4bcd-861f-776f9ed9aff0" />
 
-```mermaid
-flowchart TB
-    subgraph HC["HARVESTER CLUSTER"]
-        subgraph VPC["Kube-OVN Custom VPC"]
-            VM["VM<br/>172.20.10.2"]
-            SUB["Overlay Subnet<br/>172.20.10.0/24"]
-            LR["OVN Logical Router"]
-            VM --- SUB
-            SUB --- LR
-        end
-
-        NODE["Harvester Node"]
-        SPEAKER["Kube-OVN BGP Speaker<br/>GoBGP<br/>Local AS: 65000"]
-
-        LR --- NODE
-        NODE --- SPEAKER
-    end
-
-    FRR["External BGP Router<br/>FRR<br/>10.115.53.2<br/>AS: 65030"]
-
-    SPEAKER <-->|"BGP Peering Session<br/>TCP Port 179"| FRR
-
-    ROUTES["Advertised Routes<br/>172.20.10.0/24<br/>172.20.10.2/32"]
-
-    SPEAKER -.-> ROUTES
-
-    classDef network fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
-    classDef speaker fill:#e8f5e9,stroke:#388e3c,color:#1b5e20
-    classDef external fill:#fff3e0,stroke:#ef6c00,color:#e65100
-
-    class VM,SUB,LR,NODE network
-    class SPEAKER,ROUTES speaker
-    class FRR external
-```
 
 ## 4. BGP Peering Configuration Example
 
