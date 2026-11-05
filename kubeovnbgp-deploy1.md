@@ -29,70 +29,9 @@ Once configured:
 
 The following diagram illustrates the relationship between the overlay, underlay, BGP speaker, and external router.
 
+
 <img width="473" height="1020" alt="Screenshot 2026-11-05 at 14-37-32 Diagram Representation" src="https://github.com/user-attachments/assets/37fb878e-f973-448e-9581-315fa67ef1dc" />
 
-
-```
-                  HARVESTER CLUSTER
-        +--------------------------------------+
-        |                                      |
-        |       Kube-OVN Custom VPC             |
-        |             commonvpc                 |
-        |                                      |
-        |    +---------------------------+     |
-        |    | Overlay Subnet            |     |
-        |    | subnetinternal            |     |
-        |    | 172.20.10.0/24             |     |
-        |    |                           |     |
-        |    |  +---------------------+  |     |
-        |    |  | VM                  |  |     |
-        |    |  | 172.20.10.2/24      |  |     |
-        |    |  +---------------------+  |     |
-        |    +-------------+-------------+     |
-        |                  |                   |
-        |           OVN Logical Router         |
-        |                  |                   |
-        |    +-------------+-------------+     |
-        |    | External Logical Router   |     |
-        |    | Port                      |     |
-        |    | 10.115.48.3/21            |     |
-        |    +-------------+-------------+     |
-        |                  |                   |
-        |          External Subnet             |
-        |          10.115.48.0/21              |
-        |                  |                   |
-        |    +-------------+-------------+     |
-        |    | Provider Network / VLAN   |     |
-        |    | VLAN 2017                 |     |
-        |    +-------------+-------------+     |
-        |                  |                   |
-        |    +-------------+-------------+     |
-        |    | Harvester Node            |     |
-        |    | AS 65000                  |     |
-        |    | BGP Speaker (GoBGP)       |     |
-        |    | Host interface:           |     |
-        |    | 10.115.48.4/21            |     |
-        |    +-------------+-------------+     |
-        +------------------|-------------------+
-                           |
-                     VLAN 2017
-                           |
-              +------------+-------------+
-              |                          |
-              |    External FRR Router   |
-              |                          |
-              |    10.115.53.2/21        |
-              |    AS 65030              |
-              |                          |
-              +--------------------------+
-
-       BGP Session:
-       Harvester AS 65000 <----> FRR AS 65030
-
-       Advertised routes:
-         172.20.10.0/24
-         172.20.10.2/32
-```
 
 **Note:** The diagram is logical. The external logical router port and the BGP speaker's host interface are separate networking components. The BGP speaker establishes its BGP session using the host's underlay IP address, not the VM's overlay IP address.
 
