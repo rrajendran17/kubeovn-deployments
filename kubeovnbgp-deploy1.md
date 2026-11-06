@@ -121,7 +121,7 @@ Therefore, the provider name is `external.default.ovn`.
 
 ##### Create the external Subnet
 
-Create an external subnet in the default Kube-OVN VPC (`ovn-cluster`).
+Create an external subnet in the default Kube-OVN VPC (`ovn-cluster`) or any custom vpc
 
 ```yaml
 apiVersion: kubeovn.io/v1
@@ -175,7 +175,8 @@ The next step is to create a custom VPC and connect it to the external subnet.
 
 ##### Create a custom VPC
 
-Create a VPC named `commonvpc`.
+Create a VPC named `commonvpc` if not created during external network setup.
+The external and internal subnets must be part of same custom vpc.
 
 ```yaml
 apiVersion: kubeovn.io/v1
