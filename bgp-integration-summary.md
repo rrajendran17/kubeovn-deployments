@@ -8,6 +8,8 @@ The BGP Speaker is therefore the control-plane component that enables dynamic ro
 
 <img width="345" height="1121" alt="image" src="https://github.com/user-attachments/assets/b77f47b0-2dfc-44bf-a51d-bdfc6b267192" />
 
+Refer to actual configs from https://github.com/rrajendran17/kubeovn-deployments/blob/main/kubeovnbgp-deploy1.md
+
 ## Overview
 
 This document describes the steps to establish BGP peering between a Harvester cluster running Kube-OVN and an external FRR router.
