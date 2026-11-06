@@ -41,17 +41,22 @@ Create the internal Kube-OVN overlay network:
 
 The VM will receive an IP address from the overlay subnet (for example, `172.20.10.2/24`).
 
-## 3. Connect the Internal and External Networks
+## 3. Label the nodes acting as GW nodes
+
+kubectl label nodes node-1 node-2 ovn.kubernetes.io/external-gw=true
+
+## 4. Connect the Internal and External Networks
 
 Connect the overlay network to the external network through the Kube-OVN VPC configuration.
 
 1. Edit the existing `commonvpc` configuration.
 2. Add the external subnet to the VPC spec.externalSubnets.
 3. Enable `enableExternalSubnet`.
+4. Add default route via the external gw IP.
 
 This establishes the external connectivity relationship between the VPC's internal overlay network and the external subnet.
 
-## 4. Configure the Harvester Host Network
+## 5. Configure the Harvester Host Network
 
 Create a HostNetworkConfig to configure the host-side external VLAN interface.
 
@@ -61,7 +66,7 @@ Create a HostNetworkConfig to configure the host-side external VLAN interface.
 
 This interface provides the underlay connectivity used by the Harvester host's BGP Speaker to communicate with the external FRR router.
 
-## 5. Configure the External FRR Router
+## 6. Configure the External FRR Router
 
 Deploy an FRR router on a VM attached to the VLAN 2017 network.
 
@@ -76,7 +81,7 @@ Configure the FRR BGP neighbor and other required BGP settings.
 
 The FRR router will act as the external BGP peer for the Harvester cluster.
 
-## 6. Select Harvester Nodes for BGP Speaker Deployment
+## 7. Select Harvester Nodes for BGP Speaker Deployment
 
 Label the Harvester nodes that should run Kube-OVN BGP Speaker pods.
 
@@ -86,7 +91,7 @@ kubectl label nodes <speaker-node-1> ovn.kubernetes.io/bgp=true
 
 The Kube-OVN BGP Speaker DaemonSet uses this label to determine which nodes should run BGP Speaker pods.
 
-## 7. Install and Configure the Kube-OVN BGP Speaker
+## 8. Install and Configure the Kube-OVN BGP Speaker
 
 Install the speaker.yaml containing the following params.
 
@@ -99,7 +104,7 @@ Configure the BGP peering parameters:
 
 The BGP Speaker DaemonSet should be deployed, and pods should run on the nodes labelled in the previous step.
 
-## 8. Verify BGP Peering
+## 9. Verify BGP Peering
 
 Verify that the BGP Speaker is deployed and that the BGP session is successfully established.
 
@@ -120,7 +125,7 @@ Verify that the BGP Speaker is deployed and that the BGP session is successfully
 
 Both sides should report an established BGP session.
 
-## 9. Verify Route Advertisement
+## 10. Verify Route Advertisement
 
 Enable BGP route advertisement for the Kube-OVN overlay subnet.
 
