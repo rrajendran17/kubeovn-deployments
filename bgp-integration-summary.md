@@ -101,6 +101,7 @@ Configure the BGP peering parameters:
 - Local AS: `65000`
 - Neighbor IP: `10.115.53.2`
 - Neighbor AS: `65030`
+- Next Hops: 10.115.48.3
 
 The BGP Speaker DaemonSet should be deployed, and pods should run on the nodes labelled in the previous step.
 
@@ -140,6 +141,9 @@ Enable BGP route advertisement for the Kube-OVN overlay subnet.
 Verify that the advertised route uses the next-hop IP configured by the user (for example, the OVN EIP `10.115.48.3`) rather than the BGP neighbor IP (`10.115.53.2`) or the BGP peering source IP (`10.115.48.4`).
 
 The advertised next hop must reflect the configured routing design.
+
+This issue https://github.com/kubeovn/kube-ovn/issues/7833 solves upstream kubeovn to send a specific nexthop for advertised routes. This fix
+https://github.com/kubeovn/kube-ovn/pull/7834 must be available in upstream v1.17.0
 
 ## 10. Validate End-to-End Connectivity
 
