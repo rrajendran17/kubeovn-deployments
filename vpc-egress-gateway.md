@@ -186,10 +186,10 @@ Kube-OVN automatically creates the corresponding BFD logical router port when th
 
 The IP address `10.255.255.255` is used as the BFD peer address. Ensure that this address does not conflict with other addresses in the environment.
 
-Verify the BFD port:
+Verify the BFD port: exec into the ovn-central pod and use the following command
 
 ```bash
-kubectl ko nbctl show commonvpc
+ovn-nbctl show commonvpc
 ```
 
 Expected logical router port:
@@ -228,6 +228,8 @@ The external NAD connects the gateway Pod to the external underlay network throu
 
 The external subnet supplies the external IP addresses used by the gateway instances.
 
+https://docs.harvesterhci.io/v1.10/networking/kubeovn-vpcnatgateway#create-an-external-network
+
 ### Step 3: Configure the internal network
 
 Create an internal Network Attachment Definition named `vswitchinternal`.
@@ -246,6 +248,7 @@ CIDR: 172.20.10.0/24
 Gateway: 172.20.10.1
 VPC: commonvpc
 ```
+https://docs.harvesterhci.io/v1.10/networking/kubeovn-vpcnatgateway#create-a-tenant-network
 
 Create a VM in Harvester and attach its network interface to the `vswitchinternal` network.
 
@@ -339,7 +342,7 @@ Check the following:
 - External subnet is `subnetexternal`.
 - Phase is `Completed`.
 - Ready is `true`.
-- Two internal and external IP addresses are allocated.
+- Two internal and external IP addresses are dynamically allocated. (if not specified by user)
 
 Example:
 
@@ -507,6 +510,10 @@ status: up
 And the corresponding entry for:
 
 ```text
+dst_ip: "172.20.10.41"
+```
+
+```text
 dst_ip: "172.20.10.51"
 ```
 
@@ -546,7 +553,12 @@ One of the important capabilities of the VPC Egress Gateway is automatic failure
 
 The following test demonstrates how OVN handles a gateway becoming unreachable.
 
-### Step 1: Identify both gateway instances
+### Step 1: Start fping from the VM which sends ping packets less than every second.
+```
+bash
+fping -p 100 -l 8.8.8.8
+```
+### Step 2: Identify both gateway instances
 
 ```bash
 kubectl get pods -o wide
@@ -559,14 +571,20 @@ gateway1-xxxxx   1/1   Running   ...   hp-46
 gateway1-yyyyy   1/1   Running   ...   hp-65
 ```
 
-Identify the gateway instance that you want to simulate as failed.
+Login into each of the Harvester hosts and start tcpdump on interface connected to external.
 
-### Step 2: Simulate a BFD failure
+```
+bash
+tcpdump -xx -i <eno50> | grep google
+```
+Identify the gateway instance that is forwarding the traffic
+
+### Step 3: Simulate a BFD failure
 
 Enter the selected gateway Pod:
 
 ```bash
-kubectl exec -it <gateway-pod-name> -c bfdd -- bash
+kubectl exec -it <gateway-pod-name> -- bash
 ```
 
 Insert temporary firewall rules to block traffic on the internal interface:
@@ -579,7 +597,13 @@ iptables -I FORWARD -i eth0 -j DROP
 
 This blocks communication through the internal interface and allows you to simulate an unreachable gateway.
 
-### Step 3: Verify BFD state
+### Step 4: Verify the switchover and traffic loss
+
+Verify the tcpdump on Harvester hosts moved to another host and check the timestamps.
+Find the difference in timestamps between last packet of older Harvester host and the first packet of new Harvester hosts.
+The difference should be ~150ms * 3 = 450ms (150ms is the configured bfd internal in vpc egress gateway).
+
+### Step 5: Verify BFD state
 
 From OVN Central, run:
 
@@ -598,42 +622,6 @@ The other gateway should remain:
 ```text
 status: up
 ```
-
-### Step 4: Verify next-hop removal
-
-Check the routing policies:
-
-```bash
-ovn-nbctl lr-policy-list commonvpc
-```
-
-The failed gateway IP should no longer be present in the active next-hop list.
-
-For example, before failure:
-
-```text
-reroute 172.20.10.41, 172.20.10.51 bfd
-```
-
-After failure of Gateway 2:
-
-```text
-reroute 172.20.10.41 bfd
-```
-
-OVN removes the unhealthy gateway from the available next hops.
-
-### Step 5: Verify connectivity
-
-From the VM, continue pinging:
-
-```bash
-ping 8.8.8.8
-```
-
-Traffic should use the remaining healthy gateway.
-
-Some packet loss may occur during failure detection and route convergence, but connectivity should recover through the healthy gateway.
 
 ### Step 6: Restore the failed gateway
 
@@ -656,16 +644,6 @@ The recovered gateway's session should return to:
 ```text
 status: up
 ```
-
-Check the routing policies:
-
-```bash
-ovn-nbctl lr-policy-list commonvpc
-```
-
-Both gateway IPs should be restored as next hops.
-
-This confirms that OVN automatically restores the gateway to the ECMP routing configuration when BFD detects that it is healthy again.
 
 **Note:** These firewall rules are temporary test rules. Remove them after testing. If the Pod is restarted, the rules will also disappear with its network namespace.
 
@@ -738,7 +716,7 @@ The important capabilities demonstrated in this configuration are:
 6. **Automatic recovery:** Healthy gateway instances are added back to the routing configuration.
 7. **Horizontal scalability:** Additional gateway replicas can be deployed to increase outbound traffic capacity.
 
-**Feature limitation:** VPC Egress Gateway currently supports egress SNAT only. It does not provide DNAT, EIP, or inbound NAT functionality.
+**Feature limitation:** VPC Egress Gateway currently supports egress SNAT only. It does not provide DNAT, or inbound NAT functionality.
 
 This makes it suitable for tenant VMs that need controlled outbound access while retaining their private internal VPC addressing.
 
