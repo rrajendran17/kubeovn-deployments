@@ -599,9 +599,10 @@ This blocks communication through the internal interface and allows you to simul
 
 ### Step 4: Verify the switchover and traffic loss
 
-Verify the tcpdump on Harvester hosts moved to another host and check the timestamps.
-Find the difference in timestamps between last packet of older Harvester host and the first packet of new Harvester hosts.
-The difference should be ~150ms * 3 = 450ms (150ms is the configured bfd internal in vpc egress gateway).
+Verify the tcpdump captures on both Harvester hosts involved in the failover and compare their timestamps. 
+Calculate the time difference between the last packet captured on the old active Harvester host and the first packet captured on the new active Harvester host. 
+The expected gap should be approximately 150 ms × 3 = 450 ms, based on the configured BFD interval of 150 ms and a detection multiplier of 3 in the VPC Egress Gateway given in the above example config.
+The traffic loss depends on the bfd interval configured on the vpc egress gateway config. The above is just an example.
 
 ### Step 5: Verify BFD state
 
