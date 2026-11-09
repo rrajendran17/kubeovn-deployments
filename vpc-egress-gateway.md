@@ -556,8 +556,16 @@ The following test demonstrates how OVN handles a gateway becoming unreachable.
 ### Step 1: Start fping from the VM which sends ping packets less than every second.
 ```
 bash
-fping -p 100 -l 8.8.8.8
+sudo apt update
+sudo apt install -y fping
+
+
+fping -D -p 100 -l 8.8.8.8
 ```
+-p <time in ms> sends ping packet every 100 milliseconds
+-D Timestamp
+-l sends in loop until interrupted
+
 ### Step 2: Identify both gateway instances
 
 ```bash
