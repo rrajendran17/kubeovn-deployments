@@ -123,18 +123,9 @@ When a gateway becomes unreachable:
 
 When the gateway becomes healthy again, its BFD session returns to UP and its next hop becomes available again.
 
-```mermaid
-flowchart TD
-    A["Two Gateway Instances<br/>172.20.10.41 and 172.20.10.51"] --> B["OVN monitors both using BFD"]
-    B --> C{"Gateway health?"}
-    C -->|"Both UP"| D["ECMP uses both next hops"]
-    C -->|"Gateway 1 DOWN"| E["Remove Gateway 1 next hop"]
-    E --> F["Traffic uses Gateway 2"]
-    F --> G{"Gateway 1 recovers?"}
-    G -->|"Yes"| H["BFD session returns UP"]
-    H --> I["Restore Gateway 1 next hop"]
-    I --> D
-```
+<img width="602" height="507" alt="image" src="https://github.com/user-attachments/assets/a26b7c96-7013-47d0-9e0a-98b4bb10faf4" /> <img width="602" height="507" alt="image" src="https://github.com/user-attachments/assets/09bbd6b6-630e-4f47-ae6c-18d78c12a8d7" />
+
+
 
 This provides automatic failure detection and recovery without requiring manual routing changes.
 
