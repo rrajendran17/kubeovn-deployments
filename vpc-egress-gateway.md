@@ -12,20 +12,7 @@ In Harvester, this feature is useful when tenants need isolated VPC networks for
 
 **Important capability limitation:**
 
-VPC Egress Gateway currently supports **egress SNAT only**. It does not support EIP, DNAT, or inbound NAT.
-
-### Why is it SNAT-only?
-
-The gateway is designed specifically to handle outbound traffic originating from internal VPC workloads.
-
-- SNAT translates an internal workload's source IP into an external gateway IP.
-- Return traffic is associated with the established NAT connection and translated back to the original internal workload.
-- DNAT would require mapping incoming connections addressed to an external IP or port to an internal VM or service.
-- That inbound destination-mapping functionality is not implemented by the VPC Egress Gateway.
-
-Therefore, this feature is appropriate for outbound Internet access, but it should not be used when the requirement is to expose internal VMs or services to external clients through port forwarding or DNAT.
-
-Kube-OVN provides other networking solutions, such as VPC NAT Gateway and OVN-native gateway capabilities, for use cases requiring additional ingress/NAT functionality.
+VPC Egress Gateway currently supports **egress SNAT only**. It does not support DNAT, or inbound NAT.
 
 ## 2. Architecture and How It Works
 
@@ -47,6 +34,8 @@ When an internal VM sends traffic to an external destination:
 7. The external network routes the packet towards its destination.
 8. The response returns to the gateway, where the reverse NAT translation is performed.
 9. The response is forwarded back to the original VM.
+
+This needs upstream fix https://github.com/kubeovn/kube-ovn/pull/7425 planned to be in v1.17.0
 
 ### 2.1 High-level architecture
 
@@ -119,6 +108,7 @@ Adding more replicas provides additional gateway capacity and horizontal through
 ### 2.3 BFD-based high availability
 
 ECMP provides traffic distribution, but OVN also needs a mechanism to determine whether a gateway instance is healthy.
+If a gateway becomes unhealthy, the traffic switches over to healthy gateway instances.
 
 Kube-OVN uses Bidirectional Forwarding Detection (BFD) to monitor gateway reachability.
 
@@ -243,7 +233,6 @@ CIDR: 10.115.48.0/21
 Gateway: 10.115.55.254
 VPC: commonvpc
 ```
-
 The external NAD connects the gateway Pod to the external underlay network through the provider network and VLAN.
 
 The external subnet supplies the external IP addresses used by the gateway instances.
