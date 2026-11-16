@@ -295,6 +295,40 @@ spec:
         - subnetinternal
 ```
 
+Users can also specify an explicit (stable) external EIPs and internal IPs in the vpc egress gateway config.
+For example,
+
+```
+apiVersion: kubeovn.io/v1
+kind: VpcEgressGateway
+metadata:
+  name: gateway1
+  namespace: default
+spec:
+  bfd:
+    enabled: true
+    minRX: 50
+    minTX: 50
+    multiplier: 3
+  vpc: commonvpc
+  replicas: 2
+  externalSubnet: subnetexternal
+  internalSubnet: subnetinternal
+  policies:
+    - snat: true
+      subnets:
+        - subnetinternal
+  externalIPs:
+    - 10.115.48.224
+    - 10.115.48.225
+  internalIPs:
+    - 172.20.10.224
+    - 172.20.10.225
+  bandwidth:
+    ingress: 10
+    egress: 10
+
+```
 Apply the configuration:
 
 ```bash
