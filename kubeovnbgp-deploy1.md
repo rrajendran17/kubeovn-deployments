@@ -339,14 +339,6 @@ mgmt-br.2017@mgmt-br:
     inet 10.115.48.4/21
 ```
 
-Label the node to allow the BGP speaker DaemonSet to schedule on it:
-
-```bash
-kubectl label nodes speaker-node-1 ovn.kubernetes.io/bgp=true
-```
-
-Replace `speaker-node-1` with the actual Harvester node name.
-
 ##### Install the BGP speaker
 
 Edit the configurations.kubeovn.io and update the following under bgp
