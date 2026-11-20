@@ -349,87 +349,15 @@ Replace `speaker-node-1` with the actual Harvester node name.
 
 ##### Install the BGP speaker
 
-Deploy the following DaemonSet or use the bgp configmap once the PR https://github.com/harvester/network-controller-harvester/pull/446 is merged.
+Edit the configurations.kubeovn.io and update the following under bgp
+(kubectl edit configurations.kubeovn.io -n kube-system)
+10.115.48.3 is the OVN EIP generated for example.Use the actual EIP from kubectl get ovn-eip
 
-Use a Kube-OVN image matching the version deployed in the cluster. The image below is the example image used in this lab.
-
-```yaml
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: kube-ovn-speaker
-  namespace: kube-system
-spec:
-  selector:
-    matchLabels:
-      app: kube-ovn-speaker
-  template:
-    metadata:
-      labels:
-        app: kube-ovn-speaker
-        component: network
-        type: infra
-    spec:
-      tolerations:
-        - operator: Exists
-          effect: NoSchedule
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchLabels:
-                  app: kube-ovn-speaker
-              topologyKey: kubernetes.io/hostname
-      priorityClassName: system-node-critical
-      serviceAccountName: ovn
-      automountServiceAccountToken: true
-      hostNetwork: true
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
-      containers:
-        - name: kube-ovn-speaker
-          image: renukaraaj17/kube-ovn:v1.16.1
-          imagePullPolicy: IfNotPresent
-          command:
-            - /kube-ovn/kube-ovn-speaker
-          args:
-            - --logtostderr=false
-            - --alsologtostderr=true
-            - --log_file=/var/log/kube-ovn/kube-ovn-speaker.log
-            - --log_file_max_size=200
-            - --neighbor-address=10.115.53.2
-            - --neighbor-as=65030
-            - --cluster-as=65000
-            - --node-ips=10.115.48.3
-          env:
-            - name: NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: POD_IPS
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIPs
-          resources:
-            requests:
-              cpu: 500m
-              memory: 300Mi
-          volumeMounts:
-            - name: kube-ovn-log
-              mountPath: /var/log/kube-ovn
-      nodeSelector:
-        kubernetes.io/os: linux
-        ovn.kubernetes.io/bgp: "true"
-      volumes:
-        - name: kube-ovn-log
-          hostPath:
-            path: /var/log/kube-ovn
-            type: DirectoryOrCreate
+```
+    neighborV4Address: 10.115.53.2
+    neighborAS: 65030
+    clusterAS: 65000
+    nextHops: 10.115.48.3
 ```
 
 BGP arguments:
@@ -439,7 +367,7 @@ BGP arguments:
 | `neighbor-address` | IP address of the external FRR peer |
 | `neighbor-as` | AS number of the FRR router |
 | `cluster-as` | Local AS number used by the Kube-OVN speaker |
-| `node-ips` | IP address advertised as nexthop for the overlay network route |
+| `next-hops` | IP address advertised as nexthop for the overlay network route |
 
 In this example:
 
@@ -454,13 +382,10 @@ between external should reach the LRP (ovn-eip) so that traffic will be forwarde
 
 Apply the DaemonSet:
 
-```bash
-kubectl apply -f kube-ovn-speaker.yaml
-```
-
 Verify:
 
 ```bash
+kubectl get ds -n kube-system | grep speaker
 kubectl get pods -n kube-system -o wide | grep kube-ovn-speaker
 ```
 
